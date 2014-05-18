@@ -1,0 +1,31 @@
+# All Hosts (on the same network segment)
+-i __IF_EXT__ -d 224.0.0.1 -j DROP
+
+# All Routers (on the same network segment)
+-i __IF_EXT__ -d 224.0.0.2 -j DROP
+
+# IGMPv3
+-i __IF_EXT__ -d 224.0.0.22 -j DROP
+
+# mDNS
+-i __IF_EXT__ -d 224.0.0.251 -j ACCEPT
+
+# LLMNR (Link-Local Multicast Name Resolution)
+-i __IF_EXT__ -d 224.0.0.252 -j ACCEPT
+
+# Teredo client discovery
+-i __IF_EXT__ -d 224.0.0.253 -j DROP
+
+# 239/8 Scoped, RFC2365
+-i __IF_EXT__ -d 239.0.0.250 -j ACCEPT
+
+# 239.192/14 Organisation Local Scope
+-i __IF_EXT__ -d 239.192.152.143 -j ACCEPT
+
+# 239.255/16 Local Scope
+-i __IF_EXT__ -d 239.255.255.246 -j ACCEPT
+
+# SSDP
+-i __IF_EXT__ -d 239.255.255.250 -j ACCEPT
+
+# vi: set syntax=iptables:

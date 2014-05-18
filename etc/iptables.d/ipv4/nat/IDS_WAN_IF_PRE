@@ -1,0 +1,31 @@
+
+# No-op
+#-j IDS_GEN_PRE
+
+-m conntrack --ctstate INVALID -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:16"
+-p tcp -m multiport --dports 1243,1999,6776,7789,31337,54320,54321 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:15"
+-p udp -m udp --dport 31337 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:14"
+-p tcp -m multiport --dports 12345,12346,23456 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:13"
+-p tcp -m tcp --dport 143 --tcp-flags FIN,SYN FIN,SYN -m multiport --sports 65535,0 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:12"
+-p tcp -m tcp --tcp-flags ALL ALL -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:9"
+-p tcp -m tcp --tcp-flags ALL NONE -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:6"
+-p udp -m udp --dport 135 -m multiport --sports 7,19,135 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:3"
+-p udp -m udp --dport 7 -m multiport --sports 7,17,19 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:2"
+-p udp -m udp --dport 17 -m multiport --sports 7,17,19 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:2"
+-p udp -m udp --dport 19 -m multiport --sports 7,17,19 -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:2"
+
+# Limit NetBIOS packets to 2 per second with a burst of 10
+-d __IP_EXT__ -j IDS_D_WAN_IP_PRE
+-d __SV_EXT__ -j IDS_D_WAN_IP_PRE
+-d __OS_EXT__ -j IDS_D_WAN_IP_PRE
+-d __UK_EXT__ -j IDS_D_WAN_IP_PRE
+-d __OB_EXT__ -j IDS_D_WAN_IP_PRE
+
+# Limit packets to 2 per second with a burst of 10
+-s __IP_EXT__ -d __IP_EXT__ -j IDS_B_WAN_IP_PRE
+-s __SV_EXT__ -d __SV_EXT__ -j IDS_B_WAN_IP_PRE
+-s __OS_EXT__ -d __OS_EXT__ -j IDS_B_WAN_IP_PRE
+-s __UK_EXT__ -d __UK_EXT__ -j IDS_B_WAN_IP_PRE
+-s __OB_EXT__ -d __OB_EXT__ -j IDS_B_WAN_IP_PRE
+
+# vi: set syntax=iptables:

@@ -1,0 +1,6 @@
+-o __IF_INT__
+-o __IF_MGT__
+-o __IF_OUT__
+-o __IF_EXT__
+
+# vi: set syntax=iptables:

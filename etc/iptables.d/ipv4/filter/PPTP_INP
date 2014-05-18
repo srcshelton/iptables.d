@@ -1,0 +1,4 @@
+-p gre -j ACCEPT
+-p tcp -m tcp --dport 1723 -j ACCEPT
+
+# vi: set syntax=iptables:

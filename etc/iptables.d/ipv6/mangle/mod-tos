@@ -1,0 +1,6 @@
+-p tcp -m length --length 0:512 -j RETURN
+-m limit --limit 2/sec --limit-burst 10 -j RETURN
+-j TOS --set-tos 0x08/0x3f
+-j RETURN
+
+# vi: set syntax=iptables:

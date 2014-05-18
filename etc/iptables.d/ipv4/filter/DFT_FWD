@@ -1,0 +1,8 @@
+#-j PPTP_FWD
+#-j IGMP_FWD
+#-m conntrack --ctstate DNAT -j ACCEPT
+#-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#-d 224.0.0.0/3 -j ACCEPT
+#! -i __IF_INT__ -j DROP
+
+# vi: set syntax=iptables:

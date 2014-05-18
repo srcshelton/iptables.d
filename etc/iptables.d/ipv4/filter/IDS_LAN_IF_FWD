@@ -1,0 +1,3 @@
+-p icmp -m icmp --icmp-type echo-request -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:17"
+
+# vi: set syntax=iptables:

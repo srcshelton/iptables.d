@@ -1,0 +1,22 @@
+-p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -m limit --limit 100/sec --limit-burst 5 -j RETURN
+-p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:7"
+-p icmp -m icmp --icmp-type echo-request -m conntrack --ctstate NEW -j IDS_PING_INP
+-p icmp -m conntrack --ctstate NEW -j IDS_ICMP_INP
+-j IDS_GEN_INP
+
+# Drop new TCP and UDP packets on ports 1080,1720,5000,8080 and limit NetBIOS packets
+-d __IP_EXT__ -j IDS_D_WAN_IP_INP
+-d __SV_EXT__ -j IDS_D_WAN_IP_INP
+-d __OS_EXT__ -j IDS_D_WAN_IP_INP
+-d __UK_EXT__ -j IDS_D_WAN_IP_INP
+-d __OB_EXT__ -j IDS_D_WAN_IP_INP
+
+# Limit packets to 2 per second with a burt of up to 10...
+-s __IP_EXT__ -d __IP_EXT__ -j IDS_B_WAN_IP_INP
+-s __SV_EXT__ -d __SV_EXT__ -j IDS_B_WAN_IP_INP
+-s __OS_EXT__ -d __OS_EXT__ -j IDS_B_WAN_IP_INP
+-s __UK_EXT__ -d __UK_EXT__ -j IDS_B_WAN_IP_INP
+-s __OB_EXT__ -d __OB_EXT__ -j IDS_B_WAN_IP_INP
+-s __IP_INT__ -d __IP_INT__ -j IDS_B_LAN_IP_INP
+
+# vi: set syntax=iptables:

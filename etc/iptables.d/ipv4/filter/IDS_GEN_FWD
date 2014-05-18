@@ -1,0 +1,3 @@
+-m conntrack --ctstate INVALID -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:16"
+
+# vi: set syntax=iptables:

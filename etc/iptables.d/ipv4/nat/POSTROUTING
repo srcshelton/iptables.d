@@ -1,0 +1,21 @@
+
+# No-op
+#-j SNAT_POS
+
+# Masquerade - outboud SNAT applied here
+-j NAT_MSQ
+
+#-m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j MASQUERADE
+
+# Simple single-IP:
+-m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __IP_EXT__
+
+# Multi-IP rules:
+#-s __SN_UNK__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __OB_EXT__
+#-s __SN_USR__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __OB_EXT__
+#-s __SN_SRV__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __OS_EXT__
+#-s __SN_VRT__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __OS_EXT__
+#-s __SN_VPN__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __OB_EXT__
+#-s __SN_INT__ -m conntrack --ctstate DNAT -m mark --mark 0x1000000 -j SNAT --to-source __UK_EXT__
+
+# vi: set syntax=iptables:

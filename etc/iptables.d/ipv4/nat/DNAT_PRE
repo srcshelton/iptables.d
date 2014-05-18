@@ -1,0 +1,7 @@
+-j VS_PRE
+#-j RMA_PRE
+#-j PPTP_PRE
+#-j SNMP_PRE
+#-j DMZ_PRE
+
+# vi: set syntax=iptables:

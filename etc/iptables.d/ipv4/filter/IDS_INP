@@ -1,0 +1,9 @@
+
+# This must be a mistake:
+#-o __IF_EXT__ -j IDS_WAN_IF_INP
+# ... so the correct version could be:
+#-o __AI_INT__ =j IDS_WAN_IF_INP
+# ... or:
+-i __IF_EXT__ -j IDS_WAN_IF_INP
+
+# vi: set syntax=iptables:

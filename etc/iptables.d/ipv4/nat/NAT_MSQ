@@ -1,0 +1,17 @@
+#-o __IF_EXT__ -s __SN_INT__ -j MASQUERADE
+
+# Simple single-IP rule:
+-o __IF_EXT__ -s __SN_INT__ -j SNAT --to-source __IP_EXT__
+
+# Additional rule for separate outbound IP:
+#-o __IF_EXT__ -s __SN_INT__ -j SNAT --to-source __OB_EXT__
+
+# Support multiple outbound IPs:
+#-o __IF_EXT__ -s __SN_UNK__ -j SNAT --to-source __OB_EXT__
+#-o __IF_EXT__ -s __SN_USR__ -j SNAT --to-source __OB_EXT__
+#-o __IF_EXT__ -s __SN_SRV__ -j SNAT --to-source __OS_EXT__
+#-o __IF_EXT__ -s __SN_VRT__ -j SNAT --to-source __OS_EXT__
+#-o __IF_EXT__ -s __SN_VPN__ -j SNAT --to-source __OB_EXT__
+#-o __IF_EXT__ -s __SN_INT__ -j SNAT --to-source __UK_EXT__
+
+# vi: set syntax=iptables:

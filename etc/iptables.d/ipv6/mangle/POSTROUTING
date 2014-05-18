@@ -1,0 +1,9 @@
+-p tcp -m tcp --tcp-flags SYN,RST,ACK ACK -j mod-ack
+-m tos --tos 0x10/0x3f -j mod-tos
+
+-o __IF_INT__
+-o __IF_MGT__
+-o __IF_OUT__
+-o __IF_EXT__
+
+# vi: set syntax=iptables:

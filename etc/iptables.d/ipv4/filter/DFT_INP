@@ -1,0 +1,6 @@
+#-p igmp -j ACCEPT
+#-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#-i lo -j ACCEPT
+#! -i __IF_INT__ -j DROP
+
+# vi: set syntax=iptables:

@@ -1,0 +1,3 @@
+-o __IF_EXT__ -j IDS_WAN_IF_PRE
+
+# vi: set syntax=iptables:

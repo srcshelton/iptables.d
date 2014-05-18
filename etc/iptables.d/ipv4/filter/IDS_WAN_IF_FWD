@@ -1,0 +1,10 @@
+-j IDS_GEN_FWD
+
+# This must be a mistake:
+#-o __IP_INT__ -j IDS_LAN_IF_FWD
+# ... so the correct version could be:
+#-d __SN_INT__ -j IDS_LAN_IF_FWD
+# ... or:
+-o __AI_INT__ -j IDS_LAN_IF_FWD
+
+# vi: set syntax=iptables:

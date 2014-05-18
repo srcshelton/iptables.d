@@ -1,0 +1,42 @@
+# Early short-cut
+-m conntrack --ctstate INVALID -j DROP
+
+# Router FORWARD rules
+#-j IDS_FWD
+-i __IF_EXT__ -m conntrack --ctstate INVALID -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:16"
+-i __IF_EXT__ -o __AI_INT__ -p icmp -m icmp --icmp-type echo-request -m limit --limit 2/sec --limit-burst 10 -j LOG --log-uid --log-level info --log-prefix "HackAttack:17"
+#-j TR69_FWD
+#-j DFT_FWD
+
+# DFT_FWD:
+#-j PPTP_FWD
+-j IGMP_FWD
+-m conntrack --ctstate DNAT -j ACCEPT
+-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-d 224.0.0.0/4 -j ACCEPT
+-s __SN_VPN__ -j ACCEPT
+-d __SN_VPN__ -j ACCEPT
+! -i __IF_INT__ -j DROP
+
+# ICMP traffic
+-p icmp -j ACCEPT
+
+# UDP traffic
+-p udp -j ACCEPT
+
+# # TCP Briding rules
+# -i br0 -o br0 -m conntrack --ctstate NEW -m physdev --physdev-in __IF_INT__ ! --physdev-out __IF_INT__ --physdev-is-bridged -j ACCEPT
+# -i br0 -o br0 -m conntrack --ctstate NEW -m physdev --physdev-in __IF_MGT__ ! --physdev-out __IF_MGT__ --physdev-is-bridged -j ACCEPT
+# -i br0 -o br0 -m conntrack --ctstate NEW -m physdev --physdev-in __IF_OUT__ ! --physdev-out __IF_OUT__ --physdev-is-bridged -j ACCEPT
+# -i br0 -o br0 -m conntrack --ctstate NEW -m physdev ! --physdev-is-bridged -j ACCEPT
+# TCP Routing rules
+-p tcp -m conntrack --ctstate NEW -m tcp ! --syn -j DROP
+-p tcp -i __IF_INT__ ! -o __IF_INT__ -m conntrack --ctstate NEW -j ACCEPT
+-p tcp -i __IF_MGT__ ! -o __IF_MGT__ -m conntrack --ctstate NEW -j ACCEPT
+-p tcp -i __IF_OUT__ ! -o __IF_OUT__ -m conntrack --ctstate NEW -j ACCEPT
+-p tcp -i __IF_EXT__ ! -o __IF_EXT__ -m conntrack --ctstate NEW -j ACCEPT
+
+# Other protocols
+! -p tcp -j ACCEPT
+
+# vi: set syntax=iptables:

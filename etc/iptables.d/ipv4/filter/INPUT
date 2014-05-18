@@ -1,0 +1,82 @@
+# Early short-cut
+-m conntrack --ctstate INVALID -j DROP
+
+# Short-cut loopback traffic
+-i lo -j ACCEPT
+
+# Router INPUT rules
+-j IDS_INP
+#-j TR69_INP
+-j PPTP_INP
+#-j ISAP_INP
+#-j WAC_INP
+#-j DFT_INP
+
+# DFT_INP:
+-p igmp -j ACCEPT
+#-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#-i lo -j ACCEPT
+#! -i __IF_INT__ -j DROP
+
+-p ah -j ACCEPT
+-p esp -j ACCEPT
+
+-i __AI_INT__ -s __SN_INT__ -d __IP_EXT__ -j REJECT --reject-with icmp-port-unreachable
+-i __AI_INT__ -s __SN_INT__ -d __SV_EXT__ -j REJECT --reject-with icmp-port-unreachable
+-i __AI_INT__ -s __SN_INT__ -d __OS_EXT__ -j REJECT --reject-with icmp-port-unreachable
+-i __AI_INT__ -s __SN_INT__ -d __UK_EXT__ -j REJECT --reject-with icmp-port-unreachable
+-i __AI_INT__ -s __SN_INT__ -d __OB_EXT__ -j REJECT --reject-with icmp-port-unreachable
+
+# Short-cut via connection-tracking
+-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# ICMP traffic
+-p icmp -m icmp --icmp-type echo-reply -m comment --comment "ICMP pong" -j ACCEPT
+-p icmp -m icmp --icmp-type destination-unreachable -m comment --comment "ICMP Unreachable" -j ACCEPT
+-p icmp -m icmp --icmp-type echo-request -m comment --comment "ICMP ping" -j ACCEPT
+-p icmp -m icmp --icmp-type time-exceeded -m comment --comment "ICMP Time Exceeded" -j ACCEPT
+-p icmp -m conntrack --ctstate NEW -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Dropped ICMP:" --log-ip-options --log-macdecode
+-p icmp -m conntrack --ctstate NEW -j DROP
+
+# UDP traffic
+#-p udp -f -j ACCEPT
+-i __AI_INT__ -p udp -m udp --dport 53 -m comment --comment "DNS" -j ACCEPT
+-i __AI_INT__ -s __SN_INT__ -p udp -m udp --sport 53 -m comment --comment "DNS Response" -j ACCEPT
+# Block Apple AirPort Discovery, to prevent excessive Rejected UDP logging below
+-p udp -m udp --dport 192 -m comment --comment "Drop AirPort Base Station discovery" -j DROP
+-p udp -m udp --dport 58592 -m comment --comment "Drop AirPort Base Station discovery" -j DROP
+# Block SIP, to prevent excessive Rejected UDP loging below
+-p udp -m multiport --dports 5060,5061 -m comment --comment "SIP(S)" -j DROP
+-p udp -m multiport --dports 500,4500 -m comment --comment "ISAKMP & IPsec-NAT" -j ACCEPT
+-i __AI_INT__ -p udp -m multiport --dports 1900,5351 -m comment --comment "UPnP & NAT-PMP" -j ACCEPT
+-i __AI_INT__ -p udp -m pkttype --pkt-type unicast -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Rejected UDP:" --log-ip-options --log-uid --log-macdecode
+-i __AI_INT__ -p udp -m pkttype --pkt-type unicast -j REJECT --reject-with icmp-port-unreachable
+#-i __AI_INT__ -p udp -m pkttype ! --pkt-type unicast -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Dropped UDP:" --log-ip-options --log-uid --log-macdecode
+-i __AI_INT__ -p udp -m pkttype ! --pkt-type unicast -j DROP
+
+# TCP traffic
+-p tcp -m conntrack --ctstate NEW -m tcp ! --syn -j DROP
+-p tcp -m conntrack --ctstate NEW -m tcp --dport 113 -m comment --comment "RFC931/RFC1413 ident" -j REJECT --reject-with tcp-reset
+-i __AI_INT__ -s __SN_INT__ -p tcp -m conntrack --ctstate NEW -m tcp --dport 22 -m comment --comment "SSH" -j ACCEPT
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -m tcp --dport 53 -m comment --comment "DNS" -j ACCEPT
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -m tcp --dport 80 -m comment --comment "HTTP" -j ACCEPT
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -m tcp --dport 443 -m comment --comment "HTTPS" -j ACCEPT
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -m tcp --dport 2869 -m comment --comment "UPnP" -j ACCEPT
+# Block common port-scans, to prevent excessive Rejected TCP logging below
+-d __IP_EXT__ -p tcp -m conntrack --ctstate NEW -m multiport --dports 3389,5900 -m comment --comment "Drop remote RDP & VNC connections on non-service IP" -j DROP
+# Block Apple AirPort Discovery, to prevent excessive Rejected TCP logging below
+-p tcp -m conntrack --ctstate NEW -m tcp --dport 58592 -m comment --comment "Drop AirPort Base Station discovery" -j DROP
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Rejected TCP:" --log-tcp-sequence --log-tcp-options --log-uid --log-macdecode
+-i __AI_INT__ -p tcp -m conntrack --ctstate NEW -j REJECT --reject-with tcp-reset
+
+# Other protocols
+-i __AI_INT__ -m pkttype --pkt-type unicast -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Rejected packet:" --log-ip-options --log-uid --log-macdecode
+-i __AI_INT__ -m pkttype --pkt-type unicast -j REJECT --reject-with icmp-proto-unreachable
+#-i __AI_INT__ -m pkttype ! --pkt-type unicast -m limit --limit 2/sec --limit-burst 10 -j LOG --log-level alert --log-prefix "Dropped packet:" --log-ip-options --log-uid --log-macdecode
+-i __AI_INT__ -m pkttype ! --pkt-type unicast -j DROP
+
+# Default policy
+-P DROP
+-j DROP
+
+# vi: set syntax=iptables:

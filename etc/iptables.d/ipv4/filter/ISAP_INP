@@ -1,0 +1,3 @@
+-p icmp -m icmp --icmp-type echo-request -j ACCEPT
+
+# vi: set syntax=iptables:

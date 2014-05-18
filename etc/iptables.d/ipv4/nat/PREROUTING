@@ -1,0 +1,13 @@
+-i __IF_INT__
+-i __IF_MGT__
+-i __IF_OUT__
+-i __IF_EXT__
+
+#-j NAT_PRE
+-j portal_pre
+-j proxy_pre
+#! -p icmp -j DNAT_PRE
+! -p icmp -j VS_PRE
+-j IDS_PRE
+
+# vi: set syntax=iptables:

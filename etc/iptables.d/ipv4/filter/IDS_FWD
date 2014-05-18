@@ -1,0 +1,3 @@
+-i __IF_EXT__ -j IDS_WAN_IF_FWD
+
+# vi: set syntax=iptables:

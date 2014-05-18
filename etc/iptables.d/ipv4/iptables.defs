@@ -1,0 +1,24 @@
+#LL_INT="127.0.0.0/8"		# Loop-local subnet
+IP_INT="0.0.0.0"		# Internal router IP address
+SN_INT="10.0.0.0/16"		# Internal subnet
+IF_INT="eg0"			# Primary internal interface
+IF_MGT="eg1"			# Secondary/Management internal interface
+IF_OUT="eg2"			# Outbound/PPPoE internal interface
+AI_INT="eg+"			# 'All' internal interface(s)
+IP_EXT="0.0.0.0"		# External IP address
+IF_EXT="ppp0"			# External interface
+
+# For example, to support multiple external IP addresses:
+SV_EXT="0.0.0.0"		# Services IP address
+OS_EXT="0.0.0.0"		# Outbound Services IP address
+UK_EXT="0.0.0.0"		# Outbound Overflow IP address
+OB_EXT="0.0.0.0"		# Outbound User IP address
+
+# For example, to support multiple subnets:
+SN_UNK="10.0.0.0/24"		# Unknown devices subnet
+SN_USR="10.0.64.0/18"		# User subnet (on /20s)
+SN_SRV="10.0.128.0/18"		# Servers subnet
+SN_VRT="10.0.192.0/24"		# Services subnet
+SN_VPN="10.0.254.0/24"		# VPN subnet
+
+# vi: set syntax=sh:

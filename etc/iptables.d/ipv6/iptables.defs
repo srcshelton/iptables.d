@@ -1,0 +1,9 @@
+LL_INT="fe80::/10"		# Loop-local subnet
+SN_INT="2001::/48"		# Internal subnet
+IF_INT="eg0"			# Primary internal interface
+IF_MGT="eg1"			# Secondary/Management internal interface
+IF_OUT="eg2"			# Outbound/PPPoE internal interface
+AI_INT="eg+"			# 'All' internal interface(s)
+IF_EXT="ppp0"			# External interface
+
+# vi: set syntax=sh:

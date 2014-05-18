@@ -1,0 +1,4 @@
+# Remote Management
+#-p tcp -i __IF_EXT__ -m tcp --dport 80 -j ACCEPT
+
+# vi: set syntax=iptables:
