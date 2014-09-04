@@ -1,6 +1,8 @@
 #!/bin/bash
 
+debug="${DEBUG:-0}"
 trace="${TRACE:-0}"
+
 (( trace )) && set -o xtrace
 
 SRC="https://github.com/srcshelton/iptables.d"
@@ -11,9 +13,8 @@ VER="0.1"
 # 	There's some nasty code below...
 #	Update with current coding conventions, and port to use stdlib.sh
 #	(see github.com/srcshelton/stdlib.sh)
-#	266: The list of variables to be expanded should be dynamic
 #	Everything is painfully slow...
-#	... and doesn't respond will to intr signals
+#	... and doesn't respond well to INTR signals
 #	'compare' mode sometimes fails to match valid entries
 #
 # TODO:
@@ -21,29 +22,27 @@ VER="0.1"
 #	Alternatively, parsing the output of 'iptables-xml' may be helpful?
 #
 
-DIR=/etc/iptables.d
+DIR="/etc/iptables.d"
 COUNTERS=0
 COMPARE=0
 RUNNING=1
 
-MANCONF="/etc/man.conf"
-MANPAGE="iptables-extensions"
-MANFILE="$( man -w "$MANPAGE" )"
-MANEXT="${MANFILE##*.}"
-DECOMP="$( grep "^.$MANEXT" "$MANCONF" | sed -r 's|[[:space:]]+| |g' | cut -d' ' -f 2- )"
-[[ -n "$DECOMP" && -x "${DECOMP%% *}" ]] || DECOMP="cat"
-IPT_TARGETS="$( echo -n 'ACCEPT|QUEUE|DROP|REJECT|RETURN|' ; cat "$MANFILE" | $DECOMP | grep '^\.SS ' | cut -d ' ' -f 2 | grep "^[A-Z]" | xargs echo -n | sed 's/ /|/g' )"
-
 # Ensure sane sort ordering...
 export LC_COLLATE=C
 
-#echo >&2 "DEBUG: IPT_TARGETS is '$IPT_TARGETS'"
+# Use 'respond' rather than 'echo' to clearly differentiate function results
+# from pipeline-intermediate commands.
+#
+function respond() {
+	[[ -n "${@:-}" ]] && echo "${@}"
+} # respond
 
 function cleanup() {
 	[[ -n "$TMPFILE" && -e "$TMPFILE" ]] && rm "$TMPFILE"
 	[[ -n "$BACKUP" && -e "$BACKUP" ]] && rm "$BACKUP"
+	[[ -n "$WORKING" && -e "$WORKING" ]] && rm "$WORKING"
 	trap - INT TERM QUIT
-}
+} # cleanup
 
 function die() {
 	echo >&2 "$( basename "$0" ) FATAL: $*"
@@ -51,8 +50,26 @@ function die() {
 	exit 1
 } # die
 
+function gettargets() {
+	#
+	# Yes, we really are auto-populating the list of valid iptables targets from
+	# the iptables documentation on-the-fly... deep breath, everyone!
+	#
+	local manconf="/etc/man.conf"
+	local manpage="iptables-extensions"
+	local manfile="$( man -w "${manpage}" )"
+	local manext="${manfile##*.}"
+	local decomp="$( grep "^.${manext}" "${manconf}" | sed 's|\s\+| |g' | cut -d' ' -f 2- )"
+	[[ -n "${decomp}" && -x "${decomp%% *}" ]] || decomp="cat"
+	local ipt_targets="$( echo -n 'ACCEPT|QUEUE|DROP|REJECT|RETURN|' ; cat "${manfile}" | ${decomp} | grep '^\.SS ' | cut -d ' ' -f 2 | grep "^[A-Z]" | xargs echo -n | sed 's/ /|/g' )"
+
+	(( debug )) && echo >&2 "DEBUG: IPT_TARGETS is '$ipt_targets'"
+
+	respond "${ipt_targets}"
+} # gettargets
+
 function processfile() {
-	local FILE table TARGETS TARGET
+	local FILE table IPT_TARGETS TARGETS TARGET
 	FILE="$1"
 
 	[[ -e "$FILE" ]] || return 1
@@ -66,6 +83,7 @@ function processfile() {
 		return 0
 	fi
 
+	IPT_TARGETS="$( gettargets )"
 	TARGETS="$( cat "$FILE" | grep -- '-j ' | sed -r 's|^.*-j ([^ ]+).*$|\1|' | grep -Ev "^($IPT_TARGETS)$" )"
 	#echo >&2 "DEBUG: $FILE $TARGETS"
 	(( COMPARE )) || echo ":$table - [0:0]"
@@ -151,10 +169,9 @@ case "${DISTRIB_ID}" in
 		# service, and instead users are expected to add 'pre-up'
 		# instructions to their network interface definitions.
 		# If the 'iptables-persistent' package is installed, then
-		# state is at least saved and restored.  Additionally, the
-		# 'ufw' service appears to be installed by default and will
-		# manage iptables rules, so it's probably a good service to
-		# check.
+		# state is at least saved and restored.  However, the 'ufw'
+		# service appears to be installed by default and will manage
+		# iptables rules, so it's probably a good service to check...
 		INIT="ufw"
 		RULES="/etc/iptables/rules.v4"
 		IPTS="/sbin/iptables-save"
@@ -192,6 +209,7 @@ esac
 if (( COMPARE || COUNTERS )); then
 	TMPFILE="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
 fi
+WORKING="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
 
 # At this point, if iptables isn't running and we're writing to $RULES,
 # then we've just clobbered our input file :(
@@ -204,15 +222,21 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 		[[ "$version" == "$m_version" ]] || continue
 	fi
 
+	# FIXME: These patterns assume that all substitutions will be in the
+	#        form of XX_XXX, which we may not always want to be the case...
 	if [[ -r "$DIR"/"$version"/iptables.defs ]]; then
-		source "$DIR"/"$version"/iptables.defs
+		eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z]{3}="[^"]+"$' )
+		subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
+		sedsub=""
+		for sub in $subs; do
+			eval sedsub+="s\|__${sub}__\|\$${sub}\|g\ \;\ "
+		done
 	else
 		echo >&2 "WARNING: No defaults found in '$DIR/iptables.defs'"
 	fi
 
 	lasttable=""
-	#for TABLE in $( find "$DIR"/"$version" -mindepth 1 -maxdepth 1 -type d ); do
-		#table="$( basename "$TABLE" )"
+	# 'security' is IPv4-only, and potentially only relevant for SELinux.
 	for table in raw nat mangle filter security; do
 		[[ -d "$DIR"/"$version"/"$table" ]] || continue
 
@@ -243,10 +267,10 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 			POLICY="ACCEPT"
 			if [[ -e "$DIR"/"$version"/"$table"/"$CHAIN" ]]; then
 				POLICY="$(
-					  sed 's|#.*$||' "$DIR"/"$version"/"$table"/"$CHAIN"				\
-					| grep -E '^[[:space:]]*-P[[:space:]]+(ACCEPT|QUEUE|DROP|RETURN)[[:space:]]*$'	\
-					| tr -d '[:space:]'								\
-					| sed 's|^-P||'									\
+					  sed 's|#.*$||' "$DIR"/"$version"/"$table"/"$CHAIN"	\
+					| grep -E '^\s*-P\s+(ACCEPT|QUEUE|DROP|RETURN)\s*$'	\
+					| tr -d '[:space:]'					\
+					| sed 's|^-P||'						\
 				)"
 				[[ -n "$POLICY" ]] || POLICY="ACCEPT"
 			fi
@@ -267,33 +291,35 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 			if [[ -e "$DIR"/"$version"/"$table"/"$CHAIN" ]]; then
 				COMMENT_MATCH="(-m comment --comment ([^ ]*|\"[^\"]*\") ?)?"
 				NUMBER=0
-				# FIXME: The list of varaibles to expand should be dynamic...
+				src="$DIR"/"$version"/"$table"/"$CHAIN"
+				if grep -q '^!include .*$' "${src}"; then
+					cat "${src}" > "${WORKING}"
+					while grep -q '^!include .*$' "${WORKING}"; do
+						FILE="$( grep -m 1 '^!include .*$' "${WORKING}" | sed 's/#.*$//' | cut -d' ' -f 2- )"
+						FILE="$( sed -r "s|['\"]([^'\"]+)['\"]|\1|" <<<"${FILE}" )"
+						if [[ -f "${DIR}"/"${version}"/"${table}.${FILE}.include" ]]; then
+							FILE="${DIR}"/"${version}"/"${table}.${FILE}.include"
+						elif [[ -f "${DIR}"/"${version}"/"${table}.${FILE}" ]]; then
+							FILE="${DIR}"/"${version}"/"${table}.${FILE}"
+						elif [[ -f "${DIR}"/"${version}"/"${FILE}.include" ]]; then
+							FILE="${DIR}"/"${version}"/"${FILE}.include"
+						elif [[ -f "${DIR}"/"${version}"/"${FILE}" ]]; then
+							FILE="${DIR}"/"${version}"/"${FILE}"
+						else
+							die "!include unable to locate file '${FILE}' from ${src}"
+						fi
+						sed -i -e "0,/^!include .*$/ {r ${FILE}" -e "d}" "${WORKING}" || die "!include failed for file '${FILE}' in ${src}: ${?}"
+					done
+					src="${WORKING}"
+				fi
 				  sed -r '
 				 	s|#.*$||
-					 /^[[:space:]]*-P[[:space:]]+(ACCEPT|QUEUE|DROP|RETURN)[[:space:]]*$/d
-					s|[[:space:]]+$||
-				  ' "$DIR"/"$version"/"$table"/"$CHAIN"							\
-				| grep -Ev '^[[:space:]]*$'								\
-				| sed "
-					s|__LL_INT__|$LL_INT|g
-					s|__IP_INT__|$IP_INT|g
-					s|__SN_INT__|$SN_INT|g
-					s|__IF_INT__|$IF_INT|g
-					s|__IF_MGT__|$IF_MGT|g
-					s|__IF_OUT__|$IF_OUT|g
-					s|__AI_INT__|$AI_INT|g
-					s|__IP_EXT__|$IP_EXT|g
-					s|__OB_EXT__|$OB_EXT|g
-					s|__SV_EXT__|$SV_EXT|g
-					s|__OS_EXT__|$OS_EXT|g
-					s|__UK_EXT__|$UK_EXT|g
-					s|__IF_EXT__|$IF_EXT|g
-					s|__SN_UNK__|$SN_UNK|g
-					s|__SN_USR__|$SN_USR|g
-					s|__SN_SRV__|$SN_SRV|g
-					s|__SN_VRT__|$SN_VRT|g
-					s|__SN_VPN__|$SN_VPN|g
-				  " | while read LINE; do
+					 /^\s*-P\s+(ACCEPT|QUEUE|DROP|RETURN)\s*$/d
+					s|\s\+$||
+				  ' "$src"							\
+				| grep -v '^\s*$'						\
+				| sed "${sedsub}"						\
+				| while read -r LINE; do
 				  	(( NUMBER++ ))
 					#echo >&2 "DEBUG: Read '$LINE'"
 					COMMENT="$( grep -Eo ' -m comment --comment ([^ "][^ ]*|"[^"]*")( |$)' <<<"$LINE" )"
