@@ -3,6 +3,10 @@
 debug="${DEBUG:-0}"
 trace="${TRACE:-0}"
 
+shopt -s expand_aliases
+
+alias extern=':'
+
 (( trace )) && set -o xtrace
 
 SRC="https://github.com/srcshelton/iptables.d"
@@ -69,30 +73,39 @@ function gettargets() {
 } # gettargets
 
 function processfile() {
-	local FILE table IPT_TARGETS TARGETS TARGET
-	FILE="$1"
+	local filename="${1:-}" ; shift
+	local chains="${@:-}"
 
-	[[ -e "$FILE" ]] || return 1
+	local table targets target
+	extern IPT_TARGETS
 
-	table="$( basename "$FILE" )"
-	[[ "$table" =~ ^\..*\.swp$ ]] && return 1
-	[[ "$table" =~ ~$ ]] && return 1
+	[[ -n "${filename:-}" && -e "${filename}" ]] || { (( debug )) && echo >&2 "DEBUG: Cannot read file '${filename:-}'" ; return 254 ; }
 
-	if echo "$chains" | grep -qE "(^| )$table( |$)" >/dev/null 2>&1; then
-		#echo >&2 "DEBUG: chain '$table' already processed"
-		return 0
+	table="$( basename "${filename}" )"
+	[[ "${table}" =~ ^\..*\.swp$ ]] && { (( debug )) && echo >&2 "DEBUG: Skipping swap-file '${table}'" ; return 254 ; }
+	[[ "${table}" =~ ~$ ]] && { (( debug )) && echo >&2 "DEBUG: Skipping file '${table}" ; return 254 ; }
+
+	if echo " ${chains:-} " | grep -q " ${table} " >/dev/null 2>&1; then
+		(( debug )) && echo >&2 "DEBUG: chain '${table}' already processed"
+		respond "${chains}"
+		return 1
 	fi
 
-	IPT_TARGETS="$( gettargets )"
-	TARGETS="$( cat "$FILE" | grep -- '-j ' | sed -r 's|^.*-j ([^ ]+).*$|\1|' | grep -Ev "^($IPT_TARGETS)$" )"
-	#echo >&2 "DEBUG: $FILE $TARGETS"
-	(( COMPARE )) || echo ":$table - [0:0]"
-	chains="$chains $table"
-	for TARGET in $TARGETS; do
-		if [[ -e "$( dirname "$FILE" )"/"$TARGET" ]]; then
-			processfile "$( dirname "$FILE" )"/"$TARGET"
+	targets="$( cat "${filename}" | grep --line-buffered -- '-j ' | sed -r 's|^.*-j ([^ ]+).*$|\1|' | grep -Ev "^(${IPT_TARGETS})$" )"
+	(( debug )) && echo >&2 "DEBUG: ${filename} => ${targets}"
+
+	#(( COMPARE )) || echo ":${table} - [0:0]"
+
+	chains="${chains:+${chains} }${table}"
+	for target in ${targets}; do
+		if [[ -e "$( dirname "${filename}" )"/"${target}" ]]; then
+			chains="$( processfile "$( dirname "${filename}" )"/"${target}" "${chains}" )"
 		fi
 	done
+
+	respond "${chains}"
+
+	return 0
 } # processfile
 
 NAME="$( basename "$0" )"
@@ -211,6 +224,8 @@ if (( COMPARE || COUNTERS )); then
 fi
 WORKING="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
 
+IPT_TARGETS="$( gettargets )"
+
 # At this point, if iptables isn't running and we're writing to $RULES,
 # then we've just clobbered our input file :(
 #
@@ -276,16 +291,23 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 			fi
 			(( COMPARE )) || echo ":$CHAIN $POLICY [0:0]"
 		done
+		newchains=""
 		for CHAIN in PREROUTING INPUT FORWARD OUTPUT POSTROUTING; do
-			processfile "$DIR"/"$version"/"$table"/"$CHAIN"
+			newchains="$( processfile "$DIR"/"$version"/"$table"/"$CHAIN" "$newchains" )"
 		done
 		for CHAIN in $( export LC_ALL=C ; find "$DIR"/"$version"/"$table"/ -mindepth 1 -maxdepth 1 -type f | sort ); do
 			chain="$( basename "$CHAIN" )"
 			[[ "$chain" =~ ^\..*\.swp$ || "$chain" =~ ~$ ]] && continue
-			echo "$chains" | grep -qE "(^| )$chain( |$)" >/dev/null 2>&1 || processfile "$CHAIN"
+			echo " $chains $newchains " | grep -qE " $chain " >/dev/null 2>&1 || newchains="$( processfile "$CHAIN" "$newchains" )"
 		done
-		unset chain
-		#echo >&2 "DEBUG: \$chains is '$chains'"
+		if ! (( COMPARE )); then
+			for chain in $newchains; do
+				grep -q " ${chain} " <<<" ${chains} " || echo ":${chain} - [0:0]"
+			done
+		fi
+		[[ -n "$newchains" ]] && chains="${chains:+${chains} }${newchains}"
+		unset chain newchains
+		(( debug )) && echo >&2 "DEBUG: \$chains is '$chains'"
 		for CHAIN in $chains; do
 			#echo >&2 "DEBUG: \$CHAIN is '$CHAIN'"
 			if [[ -e "$DIR"/"$version"/"$table"/"$CHAIN" ]]; then
