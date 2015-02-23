@@ -4,7 +4,6 @@ debug="${DEBUG:-0}"
 trace="${TRACE:-0}"
 
 shopt -s expand_aliases
-
 alias extern=':'
 
 (( trace )) && set -o xtrace
@@ -240,8 +239,8 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 	# FIXME: These patterns assume that all substitutions will be in the
 	#        form of XX_XXX, which we may not always want to be the case...
 	if [[ -r "$DIR"/"$version"/iptables.defs ]]; then
-		eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z]{3}="[^"]+"$' )
-		subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
+		eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' )
+		subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
 		sedsub=""
 		for sub in $subs; do
 			eval sedsub+="s\|__${sub}__\|\$${sub}\|g\ \;\ "
