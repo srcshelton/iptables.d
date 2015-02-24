@@ -24,7 +24,7 @@ Patches are welcome ;)
 
 The default IPv4 rules provided in this repo originated from a Billion router
 which itself derives from a stock Broadcom firmware.  These rules are somehwhat
-convoluted and not ialways entirely populated, but do provide a widely-used set
+convoluted and not always entirely populated, but do provide a widely-used set
 of attack-mitigation rules to build from.  Unfortunately, the pre-existing IPv6
 rules were not exposed, so these rules are merely derived from the IPv4
 variants.  Additions should be placed in `filter/INPUT` and `filter/FORWARD` as
