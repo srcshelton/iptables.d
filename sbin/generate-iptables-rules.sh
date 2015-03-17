@@ -3,12 +3,14 @@
 debug="${DEBUG:-0}"
 trace="${TRACE:-0}"
 
+set -o pipefail
+
 shopt -s expand_aliases
 alias extern=':'
 
 (( trace )) && set -o xtrace
 
-SRC="https://github.com/srcshelton/iptables.d"
+GITSRC="https://github.com/srcshelton/iptables.d"
 VER="0.1"
 
 #
@@ -17,7 +19,6 @@ VER="0.1"
 #	Update with current coding conventions, and port to use stdlib.sh
 #	(see github.com/srcshelton/stdlib.sh)
 #	Everything is painfully slow...
-#	... and doesn't respond well to INTR signals
 #	'compare' mode sometimes fails to match valid entries
 #
 # TODO:
@@ -41,22 +42,28 @@ function respond() {
 } # respond
 
 function cleanup() {
+	local rc="${1:-}"
+
 	[[ -n "$TMPFILE" && -e "$TMPFILE" ]] && rm "$TMPFILE"
 	[[ -n "$BACKUP" && -e "$BACKUP" ]] && rm "$BACKUP"
 	[[ -n "$WORKING" && -e "$WORKING" ]] && rm "$WORKING"
-	trap - INT TERM QUIT
+
+	if [[ -n "${rc:-}" ]]; then
+		trap - EXIT
+		exit $(( rc ))
+	fi
 } # cleanup
 
 function die() {
 	echo >&2 "$( basename "$0" ) FATAL: $*"
-	cleanup
+	cleanup 1
 	exit 1
 } # die
 
 function gettargets() {
 	#
-	# Yes, we really are auto-populating the list of valid iptables targets from
-	# the iptables documentation on-the-fly... deep breath, everyone!
+	# Yes, we really are auto-populating the list of valid iptables targets
+	# from the iptables documentation on-the-fly... deep breath, everyone!
 	#
 	local manconf="/etc/man.conf"
 	local manpage="iptables-extensions"
@@ -149,7 +156,7 @@ while true ; do
 	esac
 done
 
-trap cleanup INT TERM QUIT
+trap 'cleanup 1' HUP INT QUIT TERM
 
 DISTRIB_ID="Gentoo"
 [[ -r /etc/lsb-release ]] && source /etc/lsb-release
@@ -214,7 +221,7 @@ case "${DISTRIB_ID}" in
 		fi
 		;;
 	*)
-		die "Unknown value for '\$DISTRIB_ID' in /etc/lsb-release - please submit a bug-report or patch to '${SRC}'"
+		die "Unknown value for '\$DISTRIB_ID' in /etc/lsb-release - please submit a bug-report or patch to '${GITSRC}'"
 		;;
 esac
 
@@ -238,15 +245,15 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 
 	# FIXME: These patterns assume that all substitutions will be in the
 	#        form of XX_XXX, which we may not always want to be the case...
-	if [[ -r "$DIR"/"$version"/iptables.defs ]]; then
+	if ! [[ -r "$DIR"/"$version"/iptables.defs ]]; then
+		echo >&2 "WARNING: No defaults found in '$DIR/iptables.defs'"
+	else
 		eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' )
 		subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
 		sedsub=""
 		for sub in $subs; do
 			eval sedsub+="s\|__${sub}__\|\$${sub}\|g\ \;\ "
 		done
-	else
-		echo >&2 "WARNING: No defaults found in '$DIR/iptables.defs'"
 	fi
 
 	lasttable=""
@@ -306,9 +313,12 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 		fi
 		[[ -n "$newchains" ]] && chains="${chains:+${chains} }${newchains}"
 		unset chain newchains
+
 		(( debug )) && echo >&2 "DEBUG: \$chains is '$chains'"
+
+		rulenumber=0
 		for CHAIN in $chains; do
-			#echo >&2 "DEBUG: \$CHAIN is '$CHAIN'"
+			#(( debug )) && echo >&2 "DEBUG: \$CHAIN is '$CHAIN'"
 			if [[ -e "$DIR"/"$version"/"$table"/"$CHAIN" ]]; then
 				COMMENT_MATCH="(-m comment --comment ([^ ]*|\"[^\"]*\") ?)?"
 				NUMBER=0
@@ -316,7 +326,9 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 				if grep -q '^!include .*$' "${src}"; then
 					cat "${src}" > "${WORKING}"
 					while grep -q '^!include .*$' "${WORKING}"; do
-						FILE="$( grep -m 1 '^!include .*$' "${WORKING}" | sed 's/#.*$//' | cut -d' ' -f 2- )"
+						FILE="$( grep -nm 1 '^!include .*$' "${WORKING}" )"
+						POS="$( cut -d':' -f 1 <<<"${FILE}" )"
+						FILE="$( sed 's/#.*$//' <<<"${FILE}" | cut -d' ' -f 2- )"
 						FILE="$( sed -r "s|['\"]([^'\"]+)['\"]|\1|" <<<"${FILE}" )"
 						if [[ -f "${DIR}"/"${version}"/"${table}.${FILE}.include" ]]; then
 							FILE="${DIR}"/"${version}"/"${table}.${FILE}.include"
@@ -329,9 +341,23 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 						else
 							die "!include unable to locate file '${FILE}' from ${src}"
 						fi
-						sed -i -e "0,/^!include .*$/ {r ${FILE}" -e "d}" "${WORKING}" || die "!include failed for file '${FILE}' in ${src}: ${?}"
+						#sed -i -e "0,/^!include .*$/ {r ${FILE}" -e "d}" "${WORKING}" || die "!include failed for file '${FILE}' in ${src}: ${?}"
+						if ! touch "${WORKING}.tmp" || ! [[ -e "${WORKING}.tmp" ]] || [[ -s "${WORKING}.tmp" ]]; then
+							die "Unable to create empty temporary file '${WORKING}.tmp'"
+						fi
+						{
+							head -n $(( POS - 1 )) "${WORKING}"
+							cat "${FILE}"
+							tail -n +$(( POS + 1 )) "${WORKING}"
+						} > "${WORKING}.tmp" && mv "${WORKING}.tmp" "${WORKING}" || die "!include failed for file '${FILE}' in ${src}: ${?}"
 					done
 					src="${WORKING}"
+					if (( debug )); then
+						echo >&2 "------------------------------------------------------------------------------"
+						echo >&2 "DEBUG: Current definitions ($DIR/$version/$table/$CHAIN) contains:"
+						cat >&2 "$src"
+						echo >&2 "------------------------------------------------------------------------------"
+					fi
 				fi
 				  sed -r '
 				 	s|#.*$||
@@ -341,10 +367,11 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 				| grep -v '^\s*$'						\
 				| sed "${sedsub}"						\
 				| while read -r LINE; do
+					ORIGINAL="${LINE}"
 				  	(( NUMBER++ ))
-					#echo >&2 "DEBUG: Read '$LINE'"
+					(( debug )) && echo >&2 "DEBUG: Read '$LINE'"
 					COMMENT="$( grep -Eo ' -m comment --comment ([^ "][^ ]*|"[^"]*")( |$)' <<<"$LINE" )"
-					#[[ -n "$COMMENT" ]] && echo >&2 "DEBUG: COMMENT is '$COMMENT'"
+					#[[ -n "$COMMENT" ]] && (( debug )) && echo >&2 "DEBUG: COMMENT is '$COMMENT'"
 
 					if [[ "$lasttable" != "$table" ]]; then
 						if (( COMPARE || COUNTERS )); then
@@ -354,10 +381,12 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 								awk "BEGIN { output = 0 } ; /^\*$table/ { output = 1 } ; ( 1 == output ) { print \$0 } ; ( 1 == output ) && /^COMMIT$/ { exit; }" "$BACKUP" >"$TMPFILE" 2>&1 || die "Cannot copy '$BACKUP': $?"
 							fi
 
-							#echo >&2 "------------------------------------------------------------------------------"
-							#echo >&2 "DEBUG: Current table ($table) contains:"
-							#cat >&2 "$TMPFILE"
-							#echo >&2 "------------------------------------------------------------------------------"
+							if (( debug )); then
+								echo >&2 "------------------------------------------------------------------------------"
+								echo >&2 "DEBUG: Current table ($table) contains:"
+								cat >&2 "$TMPFILE"
+								echo >&2 "------------------------------------------------------------------------------"
+							fi
 						fi
 						lasttable="$table"
 					fi
@@ -552,7 +581,7 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 						LINE="$( echo "$LINE" | sed -r 's|(-j LOG.*)( --log-uid)(.*)$|\1\3\2|' )"
 						LINE="$( echo "$LINE" | sed -r 's|(-j LOG.*)( --log-macdecode)(.*)$|\1\3\2|' )"
 						LINE="$( echo "$LINE" | sed 's| \+--log| --log|g ; s|^ \+|| ; s| \+$||' )"
-						#echo "DEBUG: LINE is '$LINE'"
+						(( debug )) && echo "DEBUG: LINE is now '$LINE'"
 					fi
 					if echo -- " $LINE " | grep -q -- " -m mac --mac-source " >/dev/null 2>&1; then
 						MAC="$( echo " $LINE " | sed -r 's|^.* -m mac --mac-source ([0-9a-fA-F:]+) .*|\1|' )"
@@ -569,7 +598,7 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 					SUFFIX=""
 					STRING=""
 					for ITEM in ${LINE/$COMMENT/ }; do
-						#echo >&2 "DEBUG: ITEM is '$ITEM'"
+						(( debug )) && echo >&2 "DEBUG: ITEM is '$ITEM'"
 						case $ITEM in
 							!)
 								PREFIX="!"
@@ -619,30 +648,50 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 								fi
 								;;
 						esac
-						#echo >&2 "DEBUG: STRING is '$STRING'"
-					done
+						(( debug )) && echo >&2 "DEBUG: STRING is '$STRING'"
+					done # ITEM in ${LINE/$COMMENT/ }
 
 					# Use '*' instead of '+' so that all instances of '+' may be escaped...
 					STRING="$S $D $I $O ?$STRING ?$COMMENT_MATCH ?$J"
 					STRING=" -A $CHAIN $STRING "
+					# XXX: This squashes spaces inside comments, too...
 					STRING="$( sed -r 's|^ +|| ; s| +| |g ; s| $||' <<<"$STRING" )"
-					#echo >&2 "DEBUG: STRING is '$STRING' (was '-A $CHAIN $LINE')"
+					(( debug )) && echo >&2 "DEBUG: STRING is '$STRING' (was '-A $CHAIN $LINE')"
+					plain="$( [[ "character special file" == "$( stat -Lc '%F' /dev/stderr )" ]] && echo -n "1" || echo -n "0" )"
 					if (( COMPARE )); then
-						RESULT="$( grep --colour=always -E -- "${STRING/+/\\+}$" "$TMPFILE" )"
-						if (( $? )); then
-							echo "MISS: -t $table $( sed 's|(.*)?||g ; s|?||g ; s| \+| |g' <<<"$STRING" )"
+						result="$( grep --colour=$( (( plain )) && echo -n "always" || echo -n "never" ) -En -- "${STRING/+/\\+}$" "${TMPFILE}" )"
+						rc=${?}
+						if (( ${rc} )); then
+							echo -e >&2 "MISS: -t ${table} $( sed 's|(.*)?||g ; s|?||g ; s| \+| |g' <<<"${STRING}" )"
+							echo "iptables -t ${table} -I ${CHAIN} $(( ++rulenumber )) ${ORIGINAL}"
+							(( debug )) && sleep 5
 						else
-							N=0
-							if (( $( echo "$RESULT" | wc -l ) != 1 )); then
-								echo "$RESULT" | while read line; do
-									(( N )) && echo -e >&2 "DUP:  -t $table $line" || { echo -e >&2 "OKAY: -t $table $line" ; (( N++ )); }
-								done
+							if (( 1 == $( echo "${result}" | wc -l ) )); then
+								pos="$( cut -d':' -f 1 <<<"${result}" )$( (( plain )) && echo -n "\e[0m" )"
+								output="$( cut -d':' -f 2- <<<"${result}" | sed -r 's/^(.*)\[[0-9]+:[0-9]+\] (.*)$/\1\2/' )"
+								#echo -e >&2 "OKAY: -t ${table} ${output} # ${DIR}/${version}/${table}/${CHAIN}:${pos}"
+								echo -e >&2 "OKAY: -t ${table} ${output} # ${pos}"
+								unset pos
+								(( rulenumber++ ))
 							else
-								echo -e >&2 "OKAY: -t $table $RESULT"
+								n=0
+								while read -r line; do
+									pos="$( cut -d':' -f 1 <<<"${line}" )$( (( plain )) && echo -n "\e[0m" )"
+									output="$( cut -d':' -f 2- <<<"${line}" | sed -r 's/^(.*)\[[0-9]+:[0-9]+\] (.*)$/\1\2/' )"
+									if ! (( n )); then
+										echo -e >&2 "OKAY: -t ${table} ${output} # input line ${pos}"
+										(( n++ ))
+									else
+										echo -e >&2 "DUP:  -t ${table} ${output} # input line ${pos}"
+									fi
+									unset pos
+								done <<<"${result}"
+								unset n
+								(( rulenumber++ ))
 							fi
 
 						fi
-					else
+					else # ! (( COMPARE ))
 						#COUNTER="[0:0]"
 						COUNTER=""
 						if (( COUNTERS )); then
@@ -653,13 +702,14 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 						LINE="$( sed 's|^ \+|| ; s| \+$||' <<<"$LINE" )"
 						echo "${COUNTER:+${COUNTER} }-A $CHAIN ${LINE//(\/32)?}"
 					fi
-				done
+				done # read -r LINE < "$DIR"/"$version"/"$table"/"$CHAIN"
 			fi
-		done
+		done # CHAIN in $chains
 		(( COMPARE )) || echo "COMMIT"
 		(( COMPARE )) || echo "# Completed on $( date )"
-	done
-done
+		rulenumber=0
+	done # table in raw nat mangle filter security
+done # VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d )
 
 cleanup
 

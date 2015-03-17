@@ -16,6 +16,15 @@ from the kernel's active counters or - for a more deterministic approach - from
 data committed to disk.  It can also output a diff between the currently active
 rules and those stored on-disk.
 
+It is now possible to round-trip between iptables rules and iptables.d
+configuration via the new `iptables-convert.sh` script which generates a full
+iptables.d configuration in `/etc/iptables.d` from the output of
+`iptables-save`.  In addition, `generate-iptables-rules.sh` is now able to
+output the necessary `iptables` statements to update the active set to match
+the iptables.d rules.  Currently missing iptables rules are detected, but
+excess rules are not commented upon - iptables.d is assumed to be the point of
+configuration.
+
 It is worth noting that the `generate-iptables-rules.sh` script has built in
 complexity over several years, and it is overly-complex for a shell script and
 so is painfully slow, and very much needs to be re-implemented in perl or
@@ -30,4 +39,3 @@ rules were not exposed, so these rules are merely derived from the IPv4
 variants.  Additions should be placed in `filter/INPUT` and `filter/FORWARD` as
 usual, with incoming connections being DNAT'd from `nat/VS_PRE`.  MAC address
 filtering may be performed from `raw/hwchk`.
-
