@@ -1,5 +1,5 @@
 
 # Populate all inbound service-mappings here, e.g.:
--p tcp -d __IP_EXT__ -m tcp --dport 22 -m comment --comment SSH -j DNAT --to-destination 10.0.0.1
+#-p tcp -d __IP_EXT__ -m tcp --dport 22 -m comment --comment SSH -j DNAT --to-destination 10.0.192.1
 
 # vi: set syntax=iptables:

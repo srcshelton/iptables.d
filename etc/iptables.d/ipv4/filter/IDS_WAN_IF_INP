@@ -4,7 +4,7 @@
 -p icmp -m conntrack --ctstate NEW -j IDS_ICMP_INP
 -j IDS_GEN_INP
 
-# Drop new TCP and UDP packets on ports 1080,1720,5000,8080 and limit NetBIOS packets
+# Drop new TCP and UDP packets on ports 1080,1720,5000,8080 and limit NetBIOS packets...
 -d __IP_EXT__ -j IDS_D_WAN_IP_INP
 -d __SV_EXT__ -j IDS_D_WAN_IP_INP
 -d __OS_EXT__ -j IDS_D_WAN_IP_INP

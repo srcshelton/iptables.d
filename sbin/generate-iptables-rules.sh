@@ -11,7 +11,7 @@ alias extern=':'
 (( trace )) && set -o xtrace
 
 GITSRC="https://github.com/srcshelton/iptables.d"
-VER="0.1"
+VER="0.3"
 
 #
 # FIXME:
@@ -20,6 +20,9 @@ VER="0.1"
 #	(see github.com/srcshelton/stdlib.sh)
 #	Everything is painfully slow...
 #	'compare' mode sometimes fails to match valid entries
+#
+# Update:
+#	'compare' is now much better ;)
 #
 # TODO:
 #	... and the entire script should probably be re-implemented in perl
@@ -77,6 +80,105 @@ function gettargets() {
 
 	respond "${ipt_targets}"
 } # gettargets
+
+function removecomments() {
+	#
+	# Remove unquoted comments from a target input file
+	# N.B.: Data is processed on a line-by-line basis, so multi-line quoted
+	#       strings will not be processed correctly!
+	# N.B.: All whitespace is squashed to a single 'space' character, and
+	#       end-of-line whitespace is removed.
+	#
+	local filename="${1:-}"
+	local tmpfile line="" char="" result="" space=""
+	local -i escaped=0 quoted=0
+	local -a quotes=()
+
+	if [[ -n "${filename:-}" ]]; then
+		[[ -r "${filename}" ]] || return 1
+	else
+		tmpfile="$( mktemp --tmpdir "${NAME}.XXXXXXXX" )" || return ${?}
+		cat - > "${tmpfile}"
+		filename="${tmpfile}"
+	fi
+
+	while read -r line; do
+		while read -r char; do
+			if [[ -z "${char:-}" ]]; then
+				# Space or end-of-line
+				space=" "
+			else
+				case "${char}" in
+					\\)
+						result+="${space:+ }${char}"
+						space=""
+						escaped=1
+						;;
+					\#)
+						if ! (( escaped || quoted )); then
+							respond "${result}"
+							result=""
+							space=""
+							escaped=0
+							quoted=0
+							quotes=()
+							continue 2
+						fi
+						result+="${space:+ }${char}"
+						space=""
+						escaped=0
+						;;
+					#\')
+						# We can't necessarily treat this as a quote,
+						# specifically for words such as "can't"!
+						# The parsing could be made more complex, or
+						# we can simply not handle single-quotes right
+						# now...
+						#:
+						#;;
+					\")
+						if ! (( escaped )); then
+							if ! (( quoted )); then
+								(( quoted ++ ))
+								quotes+=( "${char}" )
+							else
+								if [[ "${quotes[-1]}" == "${char}" ]]; then
+									# Closing quote
+									(( quoted -- ))
+									unset quotes[${#quotes[@]}-1]
+								else
+									# Embedded quote
+									(( quoted ++ ))
+									quotes+=( "${char}" )
+								fi
+							fi
+						fi
+						result+="${space:+ }${char}"
+						space=""
+						escaped=0
+						;;
+					*)
+						result+="${space:+ }${char:-}"
+						space=""
+						escaped=0
+						;;
+				esac
+			fi
+		done < <( sed 's/\(.\)/\1\n/g' <<<"${line}" )
+
+		# Reached EOL
+		respond "${result:-}"
+		result=""
+		space=""
+		escaped=0
+		quoted=0
+		quotes=()
+	done < "${filename}"
+
+	# Reached EOF
+	[[ -n "${tmpfile:-}" ]] && rm "${tmpfile}"
+	return 0
+} # removecomments
 
 function processfile() {
 	local filename="${1:-}" ; shift
@@ -177,7 +279,7 @@ case "${DISTRIB_ID}" in
 			[[ -x "$IPTS" ]] || die "Cannot locate '$IPTS'"
 		else
 			(( COMPARE )) && die "$( basename "$INIT" ) must be running in order to compare differences"
-			BACKUP="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
+			BACKUP="$( mktemp --tmpdir "${NAME}.XXXXXXXX" )" || die "mktemp failed: $?"
 			# ip6?tables is not running, so use on-disk state
 			cat "$RULES" > "$BACKUP" 2>/dev/null || die "Cannot copy '$RULES': $?"
 			RUNNING=0
@@ -214,7 +316,7 @@ case "${DISTRIB_ID}" in
 			[[ -x "$IPTS" ]] || die "Cannot locate '$IPTS'"
 		else
 			(( COMPARE )) && die "$( basename "$INIT" ) must be running in order to compare differences"
-			BACKUP="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
+			BACKUP="$( mktemp --tmpdir "${NAME}.XXXXXXXX" )" || die "mktemp failed: $?"
 			# ip6?tables is not running, so use on-disk state
 			cat "$RULES" > "$BACKUP" 2>/dev/null || die "Cannot copy '$RULES': $?"
 			RUNNING=0
@@ -226,9 +328,9 @@ case "${DISTRIB_ID}" in
 esac
 
 if (( COMPARE || COUNTERS )); then
-	TMPFILE="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
+	TMPFILE="$( mktemp --tmpdir "${NAME}.XXXXXXXX" )" || die "mktemp failed: $?"
 fi
-WORKING="$( mktemp -t $NAME.XXXXXXXX )" || die "mktemp failed: $?"
+WORKING="$( mktemp --tmpdir "${NAME}.XXXXXXXX" )" || die "mktemp failed: $?"
 
 IPT_TARGETS="$( gettargets )"
 
@@ -248,8 +350,10 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 	if ! [[ -r "$DIR"/"$version"/iptables.defs ]]; then
 		echo >&2 "WARNING: No defaults found in '$DIR/iptables.defs'"
 	else
-		eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' )
-		subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
+		#eval $( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' )
+		#subs="$( cat /etc/iptables.d/ipv4/iptables.defs | sed 's/#.*$// ; s/^\s\+// ; s/\s\+$//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
+		eval $( removecomments /etc/iptables.d/ipv4/iptables.defs | sed 's/^\s\+//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' )
+		subs="$( removecomments /etc/iptables.d/ipv4/iptables.defs | sed 's/^\s\+//' | grep -E '^[A-Z]{2}_[A-Z1-9]{3}="[^"]+"$' | cut -d'=' -f 1 | xargs echo )"
 		sedsub=""
 		for sub in $subs; do
 			eval sedsub+="s\|__${sub}__\|\$${sub}\|g\ \;\ "
@@ -258,7 +362,7 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 
 	lasttable=""
 	# 'security' is IPv4-only, and potentially only relevant for SELinux.
-	for table in raw nat mangle filter security; do
+	for table in mangle nat filter raw security; do
 		[[ -d "$DIR"/"$version"/"$table" ]] || continue
 
 		(( COMPARE )) || echo "# Generated by $NAME $VER on $( date )"
@@ -267,11 +371,11 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 			filter)
 				chains="INPUT FORWARD OUTPUT"
 				;;
-			nat)
-				chains="PREROUTING INPUT OUTPUT POSTROUTING"
-				;;
 			mangle)
 				chains="PREROUTING INPUT FORWARD OUTPUT POSTROUTING"
+				;;
+			nat)
+				chains="PREROUTING INPUT OUTPUT POSTROUTING"
 				;;
 			raw)
 				chains="PREROUTING OUTPUT"
@@ -307,8 +411,14 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 			echo " $chains $newchains " | grep -qE " $chain " >/dev/null 2>&1 || newchains="$( processfile "$CHAIN" "$newchains" )"
 		done
 		if ! (( COMPARE )); then
+			newchains="$(
+				export LC_ALL=C
+				for chain in $newchains; do
+					grep -q " ${chain} " <<<" ${chains} " || echo "${chain}"
+				done | sort | xargs echo -n
+			)"
 			for chain in $newchains; do
-				grep -q " ${chain} " <<<" ${chains} " || echo ":${chain} - [0:0]"
+				echo ":${chain} - [0:0]"
 			done
 		fi
 		[[ -n "$newchains" ]] && chains="${chains:+${chains} }${newchains}"
@@ -328,7 +438,10 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 					while grep -q '^!include .*$' "${WORKING}"; do
 						FILE="$( grep -nm 1 '^!include .*$' "${WORKING}" )"
 						POS="$( cut -d':' -f 1 <<<"${FILE}" )"
-						FILE="$( sed 's/#.*$//' <<<"${FILE}" | cut -d' ' -f 2- )"
+
+						#FILE="$( sed 's/#.*$//' <<<"${FILE}" | cut -d' ' -f 2- )"
+						FILE="$( removecomments <<<"${FILE}" | cut -d' ' -f 2- )"
+
 						FILE="$( sed -r "s|['\"]([^'\"]+)['\"]|\1|" <<<"${FILE}" )"
 						if [[ -f "${DIR}"/"${version}"/"${table}.${FILE}.include" ]]; then
 							FILE="${DIR}"/"${version}"/"${table}.${FILE}.include"
@@ -359,12 +472,17 @@ for VERSION in $( find "$DIR" -mindepth 1 -maxdepth 1 -type d ); do
 						echo >&2 "------------------------------------------------------------------------------"
 					fi
 				fi
-				  sed -r '
-				 	s|#.*$||
+				#  sed -r '
+				# 	s|#.*$||
+				#	 /^\s*-P\s+(ACCEPT|QUEUE|DROP|RETURN)\s*$/d
+				#	s|\s\+$||
+				#  ' "$src"							\
+				  removecomments "${src}"					\
+				| grep -v '^\s*$'						\
+				| sed -r '
 					 /^\s*-P\s+(ACCEPT|QUEUE|DROP|RETURN)\s*$/d
 					s|\s\+$||
-				  ' "$src"							\
-				| grep -v '^\s*$'						\
+				  '								\
 				| sed "${sedsub}"						\
 				| while read -r LINE; do
 					ORIGINAL="${LINE}"

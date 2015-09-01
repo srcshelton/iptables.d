@@ -1,5 +1,6 @@
 # Early short-cut
 -m conntrack --ctstate INVALID -j DROP
+!include "nsa-ipv4"
 
 # Router FORWARD rules
 #-j IDS_FWD

@@ -15,10 +15,20 @@ UK_EXT="0.0.0.0"		# Outbound Overflow IP address
 OB_EXT="0.0.0.0"		# Outbound User IP address
 
 # For example, to support multiple subnets:
+SN_ALL="10.0.0.0/16"		# Broadest top-level subnet
 SN_UNK="10.0.0.0/24"		# Unknown devices subnet
 SN_USR="10.0.64.0/18"		# User subnet (on /20s)
 SN_SRV="10.0.128.0/18"		# Servers subnet
-SN_VRT="10.0.192.0/24"		# Services subnet
+SN_SVC="10.0.192.0/20"		# Services subnet
+SN_VRT="10.0.253.0/24"		# VM subnet
 SN_VPN="10.0.254.0/24"		# VPN subnet
+
+MK_DNT="0x1000000"		# Connection is in DNAT state
+MK_MSD="0x1e"			# MYSHAPER DHCP connections
+MK_MSS="0xa"			# MYSHAPER Server, ICMP, and UDP (high
+				# priority?) connections
+
+DS_EPC="2038-01-19T03:12:23"	# Kernel 'datestop' parameter, which appears to
+				# change over time/releases?
 
 # vi: set syntax=sh:

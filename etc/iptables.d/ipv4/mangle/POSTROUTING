@@ -4,7 +4,7 @@
 -o __IF_INT__
 -o __IF_MGT__
 -o __IF_OUT__
--o ppp0
+-o __IF_EXT__
 
 -o __IF_EXT__ -j MYSHAPER-OUT
 -o __IF_INT__ ! -s __SN_INT__ -j MYSHAPER-IN

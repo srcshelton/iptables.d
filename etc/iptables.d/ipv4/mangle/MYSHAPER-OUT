@@ -1,7 +1,7 @@
--m iprange --src-range 10.1.0.1-10.1.0.254 -j MARK --set-mark 0x1e
--m iprange --src-range 10.1.128.1-10.1.143.254 -j MARK --set-mark 0xa
--m iprange --src-range 10.1.192.1-10.1.192.254 -j MARK --set-mark 0xa
--p icmp -j MARK --set-mark 0xa
--p udp -j MARK --set-mark 0xa
+-s __SN_UNK__ -j MARK --set-mark __MK_MSD__
+-s __SN_SRV__ -j MARK --set-mark __MK_MSS__
+-s __SN_SVC__ -j MARK --set-mark __MK_MSS__
+-p icmp -j MARK --set-mark __MK_MSS__
+-p udp -j MARK --set-mark __MK_MSS__
 
 # vi: set syntax=iptables:

@@ -1,5 +1,6 @@
 
-# This must be a mistake:
+# This must be a mistake in the Broadcom original rules, or my transcription
+# thereof:
 #-o __IF_EXT__ -j IDS_WAN_IF_INP
 # ... so the correct version could be:
 #-o __AI_INT__ -j IDS_WAN_IF_INP

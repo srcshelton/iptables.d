@@ -1,6 +1,5 @@
-# Early short-cut
-#-m conntrack --ctstate INVALID -j DROP
 # INVALID is likely not what you think it is...
+#-m conntrack --ctstate INVALID -j DROP
 
 # Short-cut loopback traffic
 -i lo -j ACCEPT

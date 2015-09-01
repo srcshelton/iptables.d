@@ -1,6 +1,7 @@
 -j IDS_GEN_FWD
 
-# This must be a mistake:
+# This must be a mistake in the Broadcom original rules, or my transcription
+# thereof:
 #-o __IP_INT__ -j IDS_LAN_IF_FWD
 # ... so the correct version could be:
 #-d __SN_INT__ -j IDS_LAN_IF_FWD

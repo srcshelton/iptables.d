@@ -1,12 +1,12 @@
 -m pkttype ! --pkt-type unicast -j RETURN
-! -s 10.0.0.0/16 -j RETURN
+! -s __SN_ALL__ -j RETURN
 
--s 10.0.0.0/24 -j RETURN -m comment --comment "Allow DHCP subnet"
--s 10.0.192.0/20 -j RETURN -m comment --comment "Allow Virtual Services subnet"
--s 10.0.253.0/24 -j RETURN -m comment --comment "Allow VM subnet"
+-s __SN_UNK__ -j RETURN -m comment --comment "Allow DHCP subnet"
+-s __SN_SVC__ -j RETURN -m comment --comment "Allow Virtual Services subnet"
+-s __SN_VRT__ -j RETURN -m comment --comment "Allow VM subnet"
 
 # Lock given IP addresses to given MAC addresses as follows:
--s 10.0.0.1 -m mac --mac-source 12:34:45:56:ab:cd -m comment --comment "hostname.example.com" -j RETURN
+#-s 10.0.0.1 -m mac --mac-source 12:34:45:56:ab:cd -m comment --comment "hostname.example.com" -j RETURN
 
 -j LOG --log-level alert --log-prefix "Mismatching MAC:" --log-macdecode
 -j DROP

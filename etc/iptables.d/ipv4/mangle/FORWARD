@@ -6,9 +6,9 @@
 -i __IF_INT__
 -i __IF_MGT__
 -i __IF_OUT__
--i ppp0
+-i __IF_EXT__
 
--i __IF_INT__ -o __IF_INT__ -m conntrack --ctstate DNAT -j MARK --set-mark 0x1000000
+-i __IF_INT__ -o __IF_INT__ -m conntrack --ctstate DNAT -j MARK --set-mark __MK_DNT__
 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 # vi: set syntax=iptables:

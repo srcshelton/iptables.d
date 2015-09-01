@@ -1,0 +1,51 @@
+-d 41.222.35.70/32 -i __AI_INT__ -o __IF_EXT__ -m comment --comment "### Start NSA-owned address block ###" -j DROP
+-d 62.216.152.67/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 64.76.82.52/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 80.77.4.3/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 81.31.34.175/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 81.31.36.174/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 81.31.38.163/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 81.31.38.166/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 84.233.205.99/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 85.112.1.83/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 87.255.38.2/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 89.18.177.3/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 149.12.71.2/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 190.242.96.212/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 190.60.202.4/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 195.128.235.227/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 195.128.235.231/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 195.128.235.233/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 195.128.235.235/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 195.81.34.67/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 202.95.84.33/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 203.150.231.49/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 203.150.231.73/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 210.81.52.120/32 -i __AI_INT__ -o __IF_EXT__ -j DROP
+-d 212.61.54.239/32 -i __AI_INT__ -o __IF_EXT__ -m comment --comment "### End NSA-owned address block ###" -j DROP
+
+-s 41.222.35.70/32 -i __IF_EXT__ -o __AI_INT__ -m comment --comment "### Start NSA-owned address block ###" -j DROP
+-s 62.216.152.67/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 64.76.82.52/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 80.77.4.3/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 81.31.34.175/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 81.31.36.174/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 81.31.38.163/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 81.31.38.166/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 84.233.205.99/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 85.112.1.83/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 87.255.38.2/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 89.18.177.3/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 149.12.71.2/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 190.242.96.212/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 190.60.202.4/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 195.128.235.227/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 195.128.235.231/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 195.128.235.233/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 195.128.235.235/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 195.81.34.67/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 202.95.84.33/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 203.150.231.49/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 203.150.231.73/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 210.81.52.120/32 -i __IF_EXT__ -o __AI_INT__ -j DROP
+-s 212.61.54.239/32 -i __IF_EXT__ -o __AI_INT__ -m comment --comment "### End NSA-owned address block ###" -j DROP
